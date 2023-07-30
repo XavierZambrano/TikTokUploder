@@ -12,6 +12,8 @@ def sign(key, msg):
 
 
 def getCreationId():
+    # examples: IkKoEz4ZCA9keBfUb-N0w
+    # You can see a symbol "-", not only letters and numbers
     length = 21
     characters = string.ascii_letters + string.digits
     creationid = ''.join(random.choice(characters) for i in range(length))
@@ -127,7 +129,8 @@ def uploadToTikTok(video, session):
         video_content = f.read()
     file_size = len(video_content)
     # 进一步处理授权，拿到最终上传数据
-    url = "https://vod-ap-singapore-1.bytevcloudapi.com/"
+    url = " https://www.tiktok.com/top/v1"
+    # In the request I see https://www.tiktok.com/top/v1
     request_parameters = f'Action=ApplyUploadInner&FileSize={file_size}&FileType=video&IsInner=1&SpaceName=tiktok&Version=2020-11-19&s=zdxefu8qvq8'
     t = datetime.datetime.utcnow()
     amzdate = t.strftime('%Y%m%dT%H%M%SZ')
@@ -151,7 +154,11 @@ def uploadToTikTok(video, session):
     session_key = upload_node["SessionKey"]
 
     # 真正开始上传
-    url = f"https://{upload_host}/{store_uri}?uploads"
+    # examples
+    #   https://tos-awsfr.tiktokcdn.com/upload/v1/tos-awsfr-v-0000c001/o0PL6eeSQEfiHQHjZ2rPEIyGf2QwzgRNA0Ah4J
+    #       upload_host = tos-awsfr.tiktokcdn.com, store_uri = tos-awsfr-v-0000c001/o0PL6eeSQEfiHQHjZ2rPEIyGf2QwzgRNA0Ah4J
+    # url = f"https://{upload_host}/{store_uri}?uploads" old
+    url = f"https://{upload_host}/upload/v1/{store_uri}"
     rand = ''.join(random.choice(
         ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']) for _ in range(30))
     headers = {
@@ -159,7 +166,8 @@ def uploadToTikTok(video, session):
         "Content-Type": f"multipart/form-data; boundary=---------------------------{rand}"
     }
     data = f"-----------------------------{rand}--"
-    r = session.post(url, headers=headers, data=data)
+    # I see a difference, TT upload the video in 1 step
+    r = session.post(url, headers=headers, data=data)  # get uploadID
     if not assertSuccess(url, r):
         return False
     upload_id = r.json()["payload"]["uploadID"]
@@ -178,7 +186,7 @@ def uploadToTikTok(video, session):
         chunk = chunks[i]
         crc = crc32(chunk)
         crcs.append(crc)
-        url = f"https://{upload_host}/{store_uri}?partNumber={i+1}&uploadID={upload_id}"
+        url = f"https://{upload_host}/upload/v1/{store_uri}?partNumber={i+1}&uploadID={upload_id}"
         headers = {
             "Authorization": video_auth,
             "Content-Type": "application/octet-stream",
@@ -189,7 +197,7 @@ def uploadToTikTok(video, session):
         if not assertSuccess(url, r):
             return False
 
-    url = f"https://{upload_host}/{store_uri}?uploadID={upload_id}"
+    url = f"https://{upload_host}/upload/v1/{store_uri}?uploadID={upload_id}"
     headers = {
         "Authorization": video_auth,
         "origin": "https://www.tiktok.com",
@@ -199,7 +207,13 @@ def uploadToTikTok(video, session):
     r = requests.post(url, headers=headers, data=data, verify=False)
     if not assertSuccess(url, r):
         return False
-    url = "https://vod-ap-singapore-1.bytevcloudapi.com/"
+    #
+    print(url)
+    # response_video_content_debug = requests.get(url, 'video_name.mp4')
+    # with open('test_debug.mp4', "wb") as f:  # opening a file handler to create new file
+    #     f.write(r.content)  # writing content to file
+    #
+    url = "https://www.tiktok.com/top/v1"
     request_parameters = f'Action=CommitUploadInner&SpaceName=tiktok&Version=2020-11-19'
     t = datetime.datetime.utcnow()
     amzdate = t.strftime('%Y%m%dT%H%M%SZ')
@@ -216,7 +230,7 @@ def uploadToTikTok(video, session):
     authorization = f"AWS4-HMAC-SHA256 Credential={access_key}/{datestamp}/ap-singapore-1/vod/aws4_request, SignedHeaders=x-amz-content-sha256;x-amz-date;x-amz-security-token, Signature={signature}"
     headers["authorization"] = authorization
     headers["Content-Type"] = "text/plain;charset=UTF-8"
-    r = session.post(f"{url}?{request_parameters}", headers=headers, data=data)
+    r = session.post(f"{url}?{request_parameters}", headers=headers, data=data)  # commit upload
     if not assertSuccess(url, r):
         return False
     return video_id

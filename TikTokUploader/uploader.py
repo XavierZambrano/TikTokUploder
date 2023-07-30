@@ -45,8 +45,8 @@ def uploadVideo(session_id, video, title, tags, users=[], url_prefix="us", sched
 	creationid = getCreationId()
 	url = f"https://{url_prefix}.tiktok.com/api/v1/web/project/create/?creation_id={creationid}&type=1&aid=1988"
 	headers = {
-		"X-Secsdk-Csrf-Request": "1",
-		"X-Secsdk-Csrf-Version": "1.2.8"
+		"X-Secsdk-Csrf-Request": "1",  # I don't see the header in the request
+		"X-Secsdk-Csrf-Version": "1.2.8"  # I don't see the header in the request
 	}
 	r = session.post(url, headers=headers)
 	if not assertSuccess(url, r):
@@ -85,6 +85,7 @@ def uploadVideo(session_id, video, title, tags, users=[], url_prefix="us", sched
 	data = {
 		"upload_param": {
 			"video_param": {
+				"markup_text": title,
 				"text": title,
 				"text_extra": text_extra,
 				"poster_delay": 0
@@ -99,6 +100,7 @@ def uploadVideo(session_id, video, title, tags, users=[], url_prefix="us", sched
 			"is_uploaded_in_batch": False,
 			"is_enable_playlist": False,
 			"is_added_to_playlist": False,
+			"tcm_params": "{\"commerce_toggle_info\":{}}"
 		},
 		"project_id": projectID,
 		"draft": "",
@@ -122,13 +124,16 @@ def uploadVideo(session_id, video, title, tags, users=[], url_prefix="us", sched
 		'content-type': 'application/json',
 		'user-agent': UA,
 		'origin': 'https://www.tiktok.com',
-		'referer': 'https://www.tiktok.com/'
+		'referer': 'https://www.tiktok.com/creator'
 	}
+	time.sleep(20)
+	# see this https://www.tiktok.com/api/v1/web/project/update/config/?aid=1988
 	r = session.post(url, params=postQuery, data=json.dumps(data, separators=(',', ':')), headers=headers)
 	if not assertSuccess(url, r):
 		log("Publish failed")
 		printError(url, r)
 		return False
+	print(r.json())
 	if r.json()["status_code"] == 0:
 		log(f"Published successfully {'| Scheduled for ' + str(schedule_time) if schedule_time else ''}")
 	else:
